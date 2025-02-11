@@ -7,6 +7,8 @@ This Plugin was originally written to take advantage of SDR++'s performance to v
 
 However, the cards can also be used to receive a large part of the HF spectrum when paired with a suitable antenna and amplifier.
 
+![image](https://github.com/user-attachments/assets/6ca399e2-4615-4458-8e10-63d6613864c8)
+
 
 Installation
 --
