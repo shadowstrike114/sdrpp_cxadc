@@ -8,6 +8,8 @@
 #include <thread>
 #include <filesystem>
 
+#define RBUF_SIZE 8*32768
+
 
 SDRPP_MOD_INFO{
     /* Name:            */ "cxadc_source",
@@ -126,7 +128,7 @@ private:
         SmGui::LeftLabel("Crystal");
         SmGui::FillWidth();
         if (SmGui::InputInt((std::string("Crystal##_cxadc_samplerate_") +  _this->name).c_str(), &_this->samplerate, 1000000, 1000000)){
-
+            
         }
 
         SmGui::LeftLabel("VMUX");
@@ -187,6 +189,9 @@ private:
         CXADCSourceModule* _this = (CXADCSourceModule*)ctx;
         if (_this->running) { return; }
 
+        core::setInputSampleRate(_this->samplerate);
+
+
         _this->file = fopen(_this->cxadc_path.c_str(), "r");
 
         if (NULL == _this->file){ return; }
@@ -224,20 +229,20 @@ private:
         CXADCSourceModule* _this = (CXADCSourceModule*)ctx;
         if (NULL == _this->file){ return; }
 
-        uint64_t sample = 0; 
-
-        uint8_t rbuf[65536*2];
+        uint8_t rbuf[RBUF_SIZE] = {0};
+        //Preload with zero to prevent stutter at the start
+        size_t bytes_read = RBUF_SIZE; 
 
         while (true){
-            size_t bytes_read = fread(rbuf,1,65536*2,_this->file);            
+                      
+            for (size_t i = 0; i < bytes_read; i++ ){            
+                _this->stream.writeBuf[i].re = ((float)rbuf[i] - 127.4f) / 128.0f;
+                _this->stream.writeBuf[i].im = 0.0f;
+            } 
 
-            if ( 0 != bytes_read){ 
-                for (size_t i = 0; i < bytes_read; i++ ){            
-                    _this->stream.writeBuf[i].re = ((float)rbuf[i] - 127.4f) / 128.0f;
-                    _this->stream.writeBuf[i].im = 0.0f;
-                }               
-                if (!_this->stream.swap(bytes_read)) { break; };
-            }
+            if ((0 != bytes_read) && (!_this->stream.swap(bytes_read))) { break; };
+            
+            bytes_read = fread(rbuf,1,RBUF_SIZE,_this->file);  
         }  
     }
 
@@ -259,6 +264,8 @@ private:
                 _this->devListString += '\0';
             }
         }
+
+        _this->cxadc_path = std::string("/dev/") + _this->devList.at(_this->devID);        
     }
 };
 
